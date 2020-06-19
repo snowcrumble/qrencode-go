@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"io"
+	"strings"
 )
 
 // The test benchmark shows that encoding with boolBitVector/boolBitGrid is
@@ -121,6 +122,52 @@ func (g *BitGrid) TerminalOutput(w io.Writer) {
 		w.Write([]byte(white))
 	}
 	w.Write([]byte(newline))
+}
+
+// TerminalOutputCompress Encode the Grid in UNICODE blocks sequences and set the background according
+// to the values in the BitGrid surrounded by a white frame
+func (g *BitGrid) TerminalOutputCompress(w io.Writer) {
+	const (
+		WHITE_ALL   = string("\u2588")
+		WHITE_BLACK = string("\u2580")
+		BLACK_WHITE = string("\u2584")
+		BLACK_ALL   = string(" ")
+	)
+
+	height := g.Height()
+	width := g.Width()
+
+	borderTop := strings.Repeat(BLACK_WHITE, width+2) + "\n"
+	borderBottom := strings.Repeat(BLACK_WHITE, width+2) + "\n"
+
+	var odd bool
+	w.Write([]byte(borderTop))
+	for y := 0; y < height; y += 2 {
+		w.Write([]byte(WHITE_ALL))
+		for x := 0; x < width; x++ {
+			b1 := g.Get(x, y)
+			//deal odd rows
+			b2 := false
+			if y+1 < height {
+				odd = true
+				b2 = g.Get(x, y+1)
+			}
+
+			if b1 && b2 {
+				w.Write([]byte(BLACK_ALL))
+			} else if b1 && !b2 {
+				w.Write([]byte(BLACK_WHITE))
+			} else if !b1 && b2 {
+				w.Write([]byte(WHITE_BLACK))
+			} else {
+				w.Write([]byte(WHITE_ALL))
+			}
+		}
+		w.Write([]byte(WHITE_ALL + "\n"))
+	}
+	if !odd {
+		w.Write([]byte(borderBottom))
+	}
 }
 
 // Return an image of the grid, with black blocks for true items and
